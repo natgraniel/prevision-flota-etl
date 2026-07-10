@@ -2,19 +2,19 @@
 
 ```mermaid
 flowchart TD
-    A1[PDF: Fleet Forecast] --> E1[Extract PDF<br/>pdfplumber]
-    A2[Word: Operations Report] --> E2[Extract DOCX<br/>python-docx]
+    A1[PDF: Prevision Flota] --> E1[PDF Extraction Layer<br/>pdfplumber + Camelot fallback]
+    A2[Word: Parte de Operaciones] --> E2[Extract DOCX<br/>python-docx]
 
     E1 --> N1[Normalize Table 1<br/>service + registration]
     E1 --> N2[Normalize Table 2<br/>reserve units]
     E2 --> N3[Normalize segments<br/>forward-fill train number]
 
-    N1 --> S1[Derive day's structure:<br/>service set, combined pairs,<br/>reserve count]
+    N1 --> S1[Build operational structure model:<br/>service set, combined pairs,<br/>reserve count]
     N2 --> S1
 
     S1 --> R1{Structural check:<br/>does today's shape match<br/>the Excel template's blocks?}
     R1 -- No --> RPT1[Structural discrepancy report]
-    R1 -- Yes --> M[Merge PDF + Word<br/>by train number]
+    R1 -- Yes --> M[Join datasets<br/>by train number]
     N3 --> M
 
     M --> V1{Data check:<br/>train exists in both sources?}

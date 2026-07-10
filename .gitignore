@@ -1,4 +1,4 @@
-# Virtual environment
+New-Item src\.gitkeep, tests\.gitkeep, data\raw\.gitkeep, data\output\.gitkeep -ItemType FileNew-Item -ItemType Directory -Path src# Virtual environment
 venv/
 .venv/
 
