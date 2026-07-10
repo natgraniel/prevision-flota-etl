@@ -1,0 +1,29 @@
+# Virtual environment
+venv/
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Real operational data - NEVER commit these
+data/raw/*.pdf
+data/raw/*.docx
+data/raw/*.xlsx
+data/output/*.xlsx
+data/output/*.csv
+
+# Keep folder structure but ignore contents
+!data/raw/.gitkeep
+!data/output/.gitkeep
+
+# Environment variables (if any credentials are added later)
+.env
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
