@@ -47,6 +47,26 @@ fixed row layout in the Excel template — it derives the day's structure
 dynamically from the PDF and reconciles it against the template before
 loading data. See `03_pipeline_diagram.md` for the reconciliation step.
 
+## A note on Python version
+
+This project was developed against **Python 3.14**, since that was
+already installed on the development machine. In hindsight, pinning to
+a more established LTS-style version (3.11 or 3.12) would have been
+the better call for a new project: the scientific Python ecosystem
+(pandas, pydantic, and others) typically takes weeks to months to
+publish pre-compiled wheels for a brand-new Python release, and 3.14
+was released only shortly before this project started.
+
+That gap surfaced directly during setup: several pinned dependency
+versions in `requirements.txt` had no pre-built wheel for 3.14 yet and
+pip fell back to compiling from source, which failed without a C/Rust
+toolchain installed. The fix was straightforward — bump each affected
+package to the earliest version that shipped 3.14 wheels — but it's a
+good illustration of why **pinning to a widely-adopted, stable Python
+version is generally preferred for new projects**, rather than
+defaulting to whatever is locally installed. A future iteration of
+this project would target 3.12 for that reason.
+
 ## Repo structure
 
 ```
