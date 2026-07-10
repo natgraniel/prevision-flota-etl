@@ -48,11 +48,15 @@ service).
 | Cantidad de boletos vendidos | `tickets_sold` | integer | `\d+` | `85` | **target: Cantidad de boletos vendidos**, per segment |
 | % de Ocupación | `occupancy_pct` | decimal | `\d+(\.\d+)?%` | `14.9%` | not transcribed to Programa, but useful for range validation (e.g. tickets_sold=0 with occupancy≠0 would be inconsistent) |
 
-**Key parsing note**: in the Word table, the train number is **not
-repeated on every segment row** — it only appears on the row where that
-service starts. A forward-fill of the train number is required
-(propagate downward until the next non-empty value) in order to group
-segments correctly.
+**Key parsing note (corrected after inspecting the real file)**: an
+earlier version of this document assumed the train number would be
+blank on non-first rows of a segment group, requiring a forward-fill.
+That assumption did not hold. In the actual `.docx`, the Train Number
+cells for all segments of the same train are **vertically merged** at
+the document level — `python-docx` returns the same value for every
+row spanned by the merge (verified: identical underlying XML cell
+object across those rows). No forward-fill is required; each row's
+`train_number` value can be read directly.
 
 ---
 
