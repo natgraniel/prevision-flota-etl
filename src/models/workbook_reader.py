@@ -137,7 +137,13 @@ class WorkbookReader:
                         row=row,
                         service=str(circulacion_val) if circulacion_val is not None else "",
                         route=route_val,
-                        is_anchor_row=row in circulacion_anchors,
+                        # Most service blocks use a vertical merge in column B,
+                        # but short services (701-704 in the reference template)
+                        # may occupy a single, unmerged row.  Any non-empty
+                        # Circulación value is therefore an anchor as well.
+                        is_anchor_row=(
+                            row in circulacion_anchors or circulacion_val is not None
+                        ),
                     )
                 )
             elif current_section == "Reserva":
@@ -146,7 +152,9 @@ class WorkbookReader:
                     ReserveBlockRow(
                         row=row,
                         station=station_val,
-                        is_anchor_row=row in station_anchors,
+                        # Stations are normally vertically merged, but a
+                        # single-row station such as Chetumal is not.
+                        is_anchor_row=(row in station_anchors or station_val is not None),
                     )
                 )
             elif current_section == "Pruebas":
