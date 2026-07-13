@@ -9,7 +9,7 @@ from pathlib import Path
 
 from src.extractors.pdf_extractor import PDFExtractor
 from src.extractors.word_extractor import WordExtractor
-from src.loaders.excel_loader import ExcelLoader
+from src.loaders.excel_loader import ExcelLoader, TestTrainInput
 from src.models.workbook_reader import WorkbookReader
 from src.reporting.quality_report import build_quality_report, write_quality_report
 from src.transformers.transformation_layer import TransformationLayer
@@ -19,8 +19,6 @@ from src.validators.validation_layer import ValidationLayer
 
 
 def parse_program_date(value: str):
-    """Parse the user-facing ``dd/mm/yyyy`` Programa date."""
-
     try:
         return datetime.strptime(value, "%d/%m/%Y").date()
     except ValueError as error:
@@ -33,8 +31,7 @@ def run(
     workbook_path: Path,
     output_path: Path,
     program_date=None,
-    test_train: str | None = None,
-    test_registration: str | None = None,
+    test_trains: list[TestTrainInput] | None = None,
     report_path: Path | None = None,
     log_dir: Path | None = None,
     lock_dir: Path | None = None,
@@ -52,28 +49,20 @@ def run(
         transformed = TransformationLayer().transform(
             pdf_result.commercial_services, pdf_result.reserve, word_result.operations
         )
-        validated = ValidationLayer().validate(
-            transformed, WorkbookReader().read(str(workbook_path))
-        )
-        report = build_quality_report(
-            validated, pdf_path, word_path, workbook_path, program_date
-        )
+        validated = ValidationLayer().validate(transformed, WorkbookReader().read(str(workbook_path)))
+        report = build_quality_report(validated, pdf_path, word_path, workbook_path, program_date)
         write_quality_report(report, report_path)
         logger.info("Quality report written: %s", report_path.name)
-
         if validated.issues:
             logger.warning("Validation failed with %s issue(s)", len(validated.issues))
-            raise RuntimeError(
-                f"No output was generated. Review the quality report: {report_path}"
-            )
+            raise RuntimeError(f"No output was generated. Review the quality report: {report_path}")
 
         result = ExcelLoader().load(
             validated,
             workbook_path,
             output_path,
-            program_date,
-            test_train,
-            test_registration,
+            program_date=program_date,
+            test_trains=test_trains,
         )
         if archive_dir:
             archive_run(archive_dir, pdf_path, word_path, workbook_path, output_path, report_path)
@@ -105,8 +94,11 @@ def main() -> None:
     parser.add_argument("--programa", type=Path, required=True, help="Programa template XLSX")
     parser.add_argument("--output", type=Path, required=True, help="Destination XLSX")
     parser.add_argument("--date", type=parse_program_date, help="Program date: dd/mm/yyyy")
-    parser.add_argument("--test-train", help="Test train number, for example P019/P018")
-    parser.add_argument("--test-mr", help="Test train MR registration, for example N001")
+    parser.add_argument("--test-train", help="Test train number")
+    parser.add_argument("--test-pks", help="Test train P.K.'s")
+    parser.add_argument("--test-mr", help="Test train MR registration")
+    parser.add_argument("--test-start", help="Test start time (UTC-6), HH:MM")
+    parser.add_argument("--test-end", help="Test end time (UTC-6), HH:MM")
     parser.add_argument("--report", type=Path, help="Quality report JSON path")
     parser.add_argument("--log-dir", type=Path, help="Log folder")
     parser.add_argument("--lock-dir", type=Path, help="Shared-folder lock location")
@@ -119,30 +111,34 @@ def main() -> None:
         if captured_date:
             program_date = parse_program_date(captured_date)
 
-    test_train = args.test_train
-    test_registration = args.test_mr
-    if (test_train is None) != (test_registration is None):
-        parser.error("--test-train and --test-mr must be provided together.")
-    if test_train is None:
-        has_test = input("¿Hay tren de pruebas? (s/n): ").strip().casefold()
-        if has_test in {"s", "si", "sí"}:
-            test_train = input("Tren de pruebas: ").strip()
-            test_registration = input("MR/Matrícula: ").strip()
+    test_values = (args.test_train, args.test_pks, args.test_mr, args.test_start, args.test_end)
+    if any(test_values) and not all(test_values):
+        parser.error("All --test-* values must be provided together.")
+    if not any(test_values):
+        has_test = input("Hay tren de pruebas? (s/n): ").strip().casefold()
+        if has_test in {"s", "si"}:
+            test_values = (
+                input("Tren de pruebas: ").strip(),
+                input("P.K.'s: ").strip(),
+                input("MR/Matricula: ").strip(),
+                input("Hora inicio UTC-6 (HH:MM): ").strip(),
+                input("Hora final UTC-6 (HH:MM): ").strip(),
+            )
         elif has_test not in {"n", "no", ""}:
             parser.error("Respond with s or n for the test train question.")
+    test_trains = [TestTrainInput(*test_values)] if all(test_values) else None
 
     result = run(
-        args.pdf,
-        args.word,
-        args.programa,
-        args.output,
-        program_date,
-        test_train,
-        test_registration,
-        args.report,
-        args.log_dir,
-        args.lock_dir,
-        args.archive_dir,
+        pdf_path=args.pdf,
+        word_path=args.word,
+        workbook_path=args.programa,
+        output_path=args.output,
+        program_date=program_date,
+        test_trains=test_trains,
+        report_path=args.report,
+        log_dir=args.log_dir,
+        lock_dir=args.lock_dir,
+        archive_dir=args.archive_dir,
     )
     print(f"Programa generated: {result.output_path}")
 
