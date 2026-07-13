@@ -94,3 +94,41 @@ prevision-flota-etl/
 - [ ] Phase 6 — Tests
 - [ ] Phase 7 — Logging
 - [ ] Phase 8 — CI/CD (GitHub Actions)
+
+## Operational desktop application
+
+The operator-facing application is `src/gui/app.py`. It uses Tkinter,
+which is included with the standard Windows Python installation and has
+no licence cost. The application requests the three source files, the
+Programa date, and (optionally) the test-train number and MR.
+
+Choose a shared root folder in the application. It automatically
+creates this structure:
+
+```
+ProgramaETL/
+|-- input/       # optional location for documents received each day
+|-- output/      # generated Programa and quality report
+|-- archive/     # timestamped copy of every successful run
+`-- logs/        # rotating technical log
+```
+
+Only one generation can run at a time for the shared folder. If a
+second user tries to run it while another run is active, the app shows
+an informative warning and does not modify any file. Before loading,
+the application also asks before replacing an existing Programa for the
+same date.
+
+### Build the Windows executable
+
+From the project root, run:
+
+```powershell
+.\scripts\build_exe.ps1
+```
+
+The script installs PyInstaller in the virtual environment and creates
+`dist\ProgramaETL\ProgramaETL.exe`. It normally runs with the user's
+own permissions; administrator rights are not required. IT should grant
+the team read/write permission to the shared folder and may need to
+approve the unsigned executable in endpoint-security software.

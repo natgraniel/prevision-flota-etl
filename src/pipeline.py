@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import shutil
 from datetime import datetime
 from pathlib import Path
 
@@ -10,7 +11,10 @@ from src.extractors.pdf_extractor import PDFExtractor
 from src.extractors.word_extractor import WordExtractor
 from src.loaders.excel_loader import ExcelLoader
 from src.models.workbook_reader import WorkbookReader
+from src.reporting.quality_report import build_quality_report, write_quality_report
 from src.transformers.transformation_layer import TransformationLayer
+from src.utils.execution_lock import exclusive_run_lock
+from src.utils.logging_config import configure_logging
 from src.validators.validation_layer import ValidationLayer
 
 
@@ -31,27 +35,67 @@ def run(
     program_date=None,
     test_train: str | None = None,
     test_registration: str | None = None,
+    report_path: Path | None = None,
+    log_dir: Path | None = None,
+    lock_dir: Path | None = None,
+    archive_dir: Path | None = None,
 ):
-    pdf_result = PDFExtractor().extract(str(pdf_path))
-    word_result = WordExtractor().extract(str(word_path))
-    transformed = TransformationLayer().transform(
-        pdf_result.commercial_services, pdf_result.reserve, word_result.operations
-    )
-    validated = ValidationLayer().validate(transformed, WorkbookReader().read(str(workbook_path)))
+    log_dir = log_dir or output_path.parent / "logs"
+    lock_dir = lock_dir or output_path.parent
+    report_path = report_path or output_path.with_suffix(".quality_report.json")
+    logger = configure_logging(log_dir)
 
-    if validated.issues:
-        for issue in validated.issues:
-            print(f"{issue.rule_id} | {issue.record_id} | {issue.description}")
-        raise RuntimeError("No output was generated because validation reported issues.")
+    with exclusive_run_lock(lock_dir):
+        logger.info("ETL run started for output=%s", output_path.name)
+        pdf_result = PDFExtractor().extract(str(pdf_path))
+        word_result = WordExtractor().extract(str(word_path))
+        transformed = TransformationLayer().transform(
+            pdf_result.commercial_services, pdf_result.reserve, word_result.operations
+        )
+        validated = ValidationLayer().validate(
+            transformed, WorkbookReader().read(str(workbook_path))
+        )
+        report = build_quality_report(
+            validated, pdf_path, word_path, workbook_path, program_date
+        )
+        write_quality_report(report, report_path)
+        logger.info("Quality report written: %s", report_path.name)
 
-    return ExcelLoader().load(
-        validated,
-        workbook_path,
-        output_path,
-        program_date,
-        test_train,
-        test_registration,
-    )
+        if validated.issues:
+            logger.warning("Validation failed with %s issue(s)", len(validated.issues))
+            raise RuntimeError(
+                f"No output was generated. Review the quality report: {report_path}"
+            )
+
+        result = ExcelLoader().load(
+            validated,
+            workbook_path,
+            output_path,
+            program_date,
+            test_train,
+            test_registration,
+        )
+        if archive_dir:
+            archive_run(archive_dir, pdf_path, word_path, workbook_path, output_path, report_path)
+        logger.info("ETL run finished successfully: %s", output_path.name)
+        return result
+
+
+def archive_run(
+    archive_dir: Path,
+    pdf_path: Path,
+    word_path: Path,
+    workbook_path: Path,
+    output_path: Path,
+    report_path: Path,
+) -> Path:
+    """Store one immutable copy of the source files, output and report per run."""
+
+    run_dir = archive_dir / datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_dir.mkdir(parents=True, exist_ok=False)
+    for item in (pdf_path, word_path, workbook_path, output_path, report_path):
+        shutil.copy2(item, run_dir / item.name)
+    return run_dir
 
 
 def main() -> None:
@@ -63,6 +107,10 @@ def main() -> None:
     parser.add_argument("--date", type=parse_program_date, help="Program date: dd/mm/yyyy")
     parser.add_argument("--test-train", help="Test train number, for example P019/P018")
     parser.add_argument("--test-mr", help="Test train MR registration, for example N001")
+    parser.add_argument("--report", type=Path, help="Quality report JSON path")
+    parser.add_argument("--log-dir", type=Path, help="Log folder")
+    parser.add_argument("--lock-dir", type=Path, help="Shared-folder lock location")
+    parser.add_argument("--archive-dir", type=Path, help="Archive folder for a successful run")
     args = parser.parse_args()
 
     program_date = args.date
@@ -91,6 +139,10 @@ def main() -> None:
         program_date,
         test_train,
         test_registration,
+        args.report,
+        args.log_dir,
+        args.lock_dir,
+        args.archive_dir,
     )
     print(f"Programa generated: {result.output_path}")
 
