@@ -82,6 +82,38 @@ range (top-left cell), not to the merged child cells.
 **Reserve section** (separate block on the same sheet): `station` and
 `registration` columns only, no route or ticket data.
 
+## 5. Section markers in the workbook
+
+Sections within sheet `DIARIO` are marked by a single row where columns
+`B:I` are merged into one cell containing the section title. Verified
+against the real workbook:
+
+| Row | Merged title | Contents |
+|---|---|---|
+| 5 | `Circulaciones comerciales` | commercial service blocks follow (rows 7–66) |
+| 67 | `Pruebas` | rows belonging to signaling/validation test units — **out of scope** |
+| 69 | `Reserva` | reserve unit rows follow (rows 70–84) |
+
+This is the reliable way to detect where the Reserve section starts
+and ends programmatically — not by row number (which will shift as the
+day's structure changes, per requirements rule 7), but by locating the
+`B:I`-merged row whose text is `"Reserva"`, and reading rows until the
+next `B:I`-merged section title or the end of the sheet.
+
+## 6. Rows with no corresponding source record
+
+Not every row under `Circulaciones comerciales` is guaranteed to match
+a record from the PDF or Word datasets. For example, a row under the
+`Pruebas` section (e.g. registration `N001` for signaling test unit
+`P019/P018`) legitimately has no corresponding entry in either source
+document — it isn't a commercial service or a reserve unit.
+
+**Rule**: if a workbook row has no matching record in any of the three
+Update Datasets, the Loader must leave that row **completely
+untouched** and the Validation Layer should record it as **out of
+scope** (a distinct category from a validation failure — it's not
+wrong, it simply isn't something this pipeline is responsible for).
+
 ---
 
 ## 4. Structural metadata (derived, not a source column)
