@@ -86,6 +86,9 @@ class ExcelLoader:
         added_test_rows = self._prepare_test_rows(worksheet, len(normalized_test_trains))
         self._write_test_trains(worksheet, normalized_test_trains)
 
+        self._synchronize_commercial_registration_merges(
+            worksheet, validated_updates.commercial_updates
+        )
         for update in validated_updates.commercial_updates:
             self._write(worksheet, update.target_row, COL_REGISTRATION, update.registration)
         for update in validated_updates.ticket_updates:
@@ -188,6 +191,79 @@ class ExcelLoader:
             ExcelLoader._write(worksheet, row, TEST_DURATION_COLUMN, ExcelLoader._duration_label(item.start_time, item.end_time))
             for column in range(TEST_TRAIN_COLUMN, TEST_DURATION_COLUMN + 1):
                 worksheet.cell(row, column).fill = WHITE_FILL
+
+    @staticmethod
+    def _synchronize_commercial_registration_merges(worksheet, commercial_updates) -> None:
+        """Make Matrícula merges follow the PDF's combined-service rows.
+
+        A single PDF row such as ``301-302`` means both services use one
+        material unit.  Their cells are merged only if their physical service
+        blocks in Programa are adjacent.  A non-adjacent pair must remain as
+        two equal cells; merging it would cover unrelated services between
+        them and corrupt the template's route layout.
+        """
+
+        if not commercial_updates:
+            return
+
+        service_starts = sorted(
+            (update.target_row, update.service) for update in commercial_updates
+        )
+        service_spans: dict[str, tuple[int, int]] = {}
+        for index, (start_row, service) in enumerate(service_starts):
+            next_start = (
+                service_starts[index + 1][0]
+                if index + 1 < len(service_starts)
+                else TEST_ROW
+            )
+            service_spans[service] = (start_row, next_start - 1)
+
+        desired_spans = set(service_spans.values())
+        groups: dict[tuple[str, ...], list] = {}
+        for update in commercial_updates:
+            source_services = tuple(update.source_services or (update.service,))
+            groups.setdefault(source_services, []).append(update)
+
+        for source_services, group_updates in groups.items():
+            if len(source_services) < 2 or len(group_updates) != len(source_services):
+                continue
+            try:
+                spans = [service_spans[service] for service in source_services]
+            except KeyError:
+                continue
+            if all(spans[index][1] + 1 == spans[index + 1][0] for index in range(len(spans) - 1)):
+                for span in spans:
+                    desired_spans.discard(span)
+                desired_spans.add((spans[0][0], spans[-1][1]))
+
+        existing_merges = [
+            (merged.min_row, merged.min_col, merged.max_row, merged.max_col)
+            for merged in worksheet.merged_cells.ranges
+            if merged.min_col == COL_REGISTRATION == merged.max_col
+            and merged.max_row < TEST_ROW
+        ]
+        saved_styles = {
+            row: copy(worksheet.cell(row, COL_REGISTRATION)._style)
+            for start_row, _, end_row, _ in existing_merges
+            for row in range(start_row, end_row + 1)
+        }
+        for start_row, start_column, end_row, end_column in existing_merges:
+            worksheet.unmerge_cells(
+                start_row=start_row,
+                start_column=start_column,
+                end_row=end_row,
+                end_column=end_column,
+            )
+        for row, style in saved_styles.items():
+            worksheet.cell(row, COL_REGISTRATION)._style = copy(style)
+        for start_row, end_row in sorted(desired_spans):
+            if end_row > start_row:
+                worksheet.merge_cells(
+                    start_row=start_row,
+                    start_column=COL_REGISTRATION,
+                    end_row=end_row,
+                    end_column=COL_REGISTRATION,
+                )
 
     @staticmethod
     def _rebuild_reserve_section(worksheet, reserve_updates, reserve_header_row: int) -> None:

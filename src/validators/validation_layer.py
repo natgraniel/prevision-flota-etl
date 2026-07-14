@@ -42,6 +42,7 @@ class ValidatedCommercialUpdate:
     service: str
     registration: str
     target_row: int
+    source_services: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -170,7 +171,12 @@ class ValidationLayer:
                 continue
 
             result.commercial_updates.append(
-                ValidatedCommercialUpdate(update.service, update.registration, block[0].row)
+                ValidatedCommercialUpdate(
+                    update.service,
+                    update.registration,
+                    block[0].row,
+                    update.source_services or (update.service,),
+                )
             )
 
     @staticmethod

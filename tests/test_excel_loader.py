@@ -43,6 +43,13 @@ def test_loader_writes_multiple_test_trains_and_preserves_schedule(tmp_path: Pat
     assert load_result.reserve_updates_written == 14
     assert load_result.test_train_written is True
     assert worksheet["D7"].value == "L003"
+    merges = {str(merged) for merged in worksheet.merged_cells.ranges}
+    # The source PDF combines 301-302, whose blocks are adjacent in Programa.
+    assert "D27:D34" in merges
+    # 601-604 share an MR in the PDF but are separated by 602-603 in Programa;
+    # they must remain independent to avoid covering those intervening rows.
+    assert "D55:D56" in merges
+    assert "D61:D62" in merges
     assert worksheet["B3"].value == "10 Julio. 2026"
     assert worksheet["B68"].value == "P009"
     assert worksheet["C68"].value == "855+000 - 893+000"

@@ -41,6 +41,9 @@ class CommercialUpdateRecord:
 
     service: str  # always a single service number after splitting, e.g. "301" (never "301-302")
     registration: str
+    # Original services from one PDF row. This preserves the information that
+    # they may share one vertically-merged Matrícula cell in Programa.
+    source_services: tuple[str, ...] = ()
 
 
 @dataclass
@@ -87,11 +90,13 @@ class TransformationLayer:
         """
         updates: list[CommercialUpdateRecord] = []
         for rec in records:
-            for single_service in rec.service.split("-"):
+            source_services = tuple(rec.service.split("-"))
+            for single_service in source_services:
                 updates.append(
                     CommercialUpdateRecord(
                         service=single_service,
                         registration=rec.registration,
+                        source_services=source_services,
                     )
                 )
         return updates
