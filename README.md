@@ -86,11 +86,11 @@ prevision-flota-etl/
 ## Project status
 
 - [x] Phase 0 — Documentation & data dictionary
-- [ ] Phase 1 — Environment & version control
-- [ ] Phase 2 — Extraction (PDF/Word)
-- [ ] Phase 3 — Transformation & business rules
-- [ ] Phase 4 — Data quality validation
-- [ ] Phase 5 — Load to Excel
+- [x] Phase 1 — Environment & version control
+- [x] Phase 2 — Extraction (PDF/Word)
+- [x] Phase 3 — Transformation & business rules
+- [x] Phase 4 — Data quality validation
+- [x] Phase 5 — Load to Excel
 - [ ] Phase 6 — Tests
 - [ ] Phase 7 — Logging
 - [ ] Phase 8 — CI/CD (GitHub Actions)
