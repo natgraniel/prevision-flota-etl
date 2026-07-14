@@ -91,8 +91,8 @@ prevision-flota-etl/
 - [x] Phase 3 — Transformation & business rules
 - [x] Phase 4 — Data quality validation
 - [x] Phase 5 — Load to Excel
-- [ ] Phase 6 — Tests
-- [ ] Phase 7 — Logging
+- [x] Phase 6 — Tests
+- [x] Phase 7 — Logging
 - [ ] Phase 8 — CI/CD (GitHub Actions)
 
 ## Operational desktop application
