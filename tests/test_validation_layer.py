@@ -15,7 +15,7 @@ def test_normalize_route_ignores_accents_case_and_punctuation():
     )
 
 
-def test_validation_rebuilds_split_excel_route_and_assigns_anchor_rows():
+def test_validation_rebuilds_split_excel_route_and_keeps_reserves_dynamic():
     workbook = WorkbookStructure(
         commercial_rows=[
             CommercialBlockRow(7, "101", "Palenque – ", True),
@@ -37,4 +37,4 @@ def test_validation_rebuilds_split_excel_route_and_assigns_anchor_rows():
     assert result.issues == []
     assert result.commercial_updates[0].target_row == 7
     assert result.ticket_updates[0].target_row == 7
-    assert result.reserve_updates[0].target_row == 70
+    assert result.reserve_updates[0].target_row == 0

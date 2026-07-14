@@ -30,7 +30,8 @@ TEST_START_TIME_COLUMN = 6
 TEST_END_TIME_COLUMN = 7
 TEST_DURATION_COLUMN = 8
 TEST_DURATION_MERGE_END_COLUMN = 9
-VALID_REGISTRATION_RE = re.compile(r"^[A-Z]\d{3}(?:/[A-Z]\d{3})*$")
+# A test consist may use either the operational slash or the word "y".
+VALID_REGISTRATION_RE = re.compile(r"^[A-Z]\d{3}(?:(?:/|\s*Y\s*)[A-Z]\d{3})*$")
 WHITE_FILL = PatternFill(fill_type="solid", fgColor="FFFFFF")
 MONTH_NAMES_ES = (
     "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -89,12 +90,11 @@ class ExcelLoader:
             self._write(worksheet, update.target_row, COL_REGISTRATION, update.registration)
         for update in validated_updates.ticket_updates:
             self._write(worksheet, update.target_row, COL_TICKETS, update.tickets_sold)
-        for update in validated_updates.reserve_updates:
-            target_row = update.target_row + added_test_rows
-            self._write(worksheet, target_row, COL_STATION, update.workshop_station)
-            self._write(worksheet, target_row, COL_REGISTRATION, update.registration)
-            status = "" if update.status.strip().upper() == "RESERVA" else update.status
-            self._write(worksheet, target_row, COL_RESERVE_STATUS, status)
+        self._rebuild_reserve_section(
+            worksheet,
+            validated_updates.reserve_updates,
+            reserve_header_row=RESERVE_HEADER_ROW + added_test_rows,
+        )
 
         destination.parent.mkdir(parents=True, exist_ok=True)
         workbook.save(destination)
@@ -114,7 +114,11 @@ class ExcelLoader:
                 raise ValueError("Every test train must include Tren, P.K.'s, MR, Hora Inicio and Hora Final.")
             registration = item.registration.strip().upper()
             if not VALID_REGISTRATION_RE.fullmatch(registration):
-                raise ValueError("Test MR must use A000 or coupled registrations separated by /, for example N001 or R001/R006.")
+                raise ValueError(
+                    "Test MR must use A000 or coupled registrations, for example "
+                    "N001, R001/R006 or R001 y R006."
+                )
+            registration = re.sub(r"\s*Y\s*", " y ", registration)
             start_time = ExcelLoader._normalize_time(item.start_time, "Hora Inicio")
             end_time = ExcelLoader._normalize_time(item.end_time, "Hora Final")
             normalized.append(TestTrainInput(item.train.strip(), item.pks.strip(), registration, start_time, end_time))
@@ -184,6 +188,105 @@ class ExcelLoader:
             ExcelLoader._write(worksheet, row, TEST_DURATION_COLUMN, ExcelLoader._duration_label(item.start_time, item.end_time))
             for column in range(TEST_TRAIN_COLUMN, TEST_DURATION_COLUMN + 1):
                 worksheet.cell(row, column).fill = WHITE_FILL
+
+    @staticmethod
+    def _rebuild_reserve_section(worksheet, reserve_updates, reserve_header_row: int) -> None:
+        """Resize and rebuild Reserva directly from the PDF's valid records.
+
+        The PDF controls both the number of reserves and the stations where
+        they are located.  The master template therefore supplies style, not
+        a fixed capacity for each station.
+        """
+
+        reserve_start = reserve_header_row + 1
+        reserve_end = reserve_start
+        while reserve_end <= worksheet.max_row:
+            values = [worksheet.cell(reserve_end, column).value for column in range(2, 10)]
+            if all(value is None for value in values):
+                break
+            reserve_end += 1
+        old_count = reserve_end - reserve_start
+        if old_count <= 0:
+            raise ValueError("Programa template has no rows below the Reserva header.")
+
+        base_styles = {
+            column: copy(worksheet.cell(reserve_start, column)._style)
+            for column in range(1, worksheet.max_column + 1)
+        }
+        base_height = worksheet.row_dimensions[reserve_start].height
+        new_count = len(reserve_updates)
+        delta = new_count - old_count
+
+        # openpyxl does not update merges when rows are inserted/deleted. Save
+        # and restore every affected merge, except those in Reserva itself,
+        # which will be recreated from the source records below.
+        affected_ranges = [
+            (merged.min_row, merged.min_col, merged.max_row, merged.max_col)
+            for merged in worksheet.merged_cells.ranges
+            if merged.max_row >= reserve_start
+        ]
+        for min_row, min_col, max_row, max_col in affected_ranges:
+            worksheet.unmerge_cells(
+                start_row=min_row,
+                start_column=min_col,
+                end_row=max_row,
+                end_column=max_col,
+            )
+
+        if delta > 0:
+            worksheet.insert_rows(reserve_end, amount=delta)
+        elif delta < 0:
+            worksheet.delete_rows(reserve_start + new_count, amount=-delta)
+
+        for min_row, min_col, max_row, max_col in affected_ranges:
+            # Old Reserva merges are deliberately replaced with dynamic groups.
+            if min_row >= reserve_start and max_row < reserve_end:
+                continue
+            if min_row >= reserve_end:
+                min_row += delta
+                max_row += delta
+            elif max_row >= reserve_end:
+                max_row += delta
+            worksheet.merge_cells(
+                start_row=min_row,
+                start_column=min_col,
+                end_row=max_row,
+                end_column=max_col,
+            )
+
+        for row in range(reserve_start, reserve_start + new_count):
+            worksheet.row_dimensions[row].height = base_height
+            for column, style in base_styles.items():
+                cell = worksheet.cell(row, column)
+                cell._style = copy(style)
+                cell.value = None
+
+        groups: dict[str, list] = {}
+        for update in reserve_updates:
+            groups.setdefault(update.workshop_station, []).append(update)
+
+        current_row = reserve_start
+        for station, updates in groups.items():
+            group_end = current_row + len(updates) - 1
+            worksheet.merge_cells(
+                start_row=current_row,
+                start_column=COL_STATION,
+                end_row=group_end,
+                end_column=3,
+            )
+            worksheet.cell(current_row, COL_STATION).value = station
+            for update in updates:
+                worksheet.merge_cells(
+                    start_row=current_row,
+                    start_column=COL_RESERVE_STATUS,
+                    end_row=current_row,
+                    end_column=9,
+                )
+                worksheet.cell(current_row, COL_REGISTRATION).value = update.registration
+                worksheet.cell(current_row, COL_RESERVE_STATUS).value = (
+                    "" if update.status.strip().upper() == "RESERVA" else update.status
+                )
+                current_row += 1
 
     @staticmethod
     def _write(worksheet, row: int, column: int, value: str | int) -> None:

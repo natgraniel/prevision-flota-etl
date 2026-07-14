@@ -227,18 +227,8 @@ class ValidationLayer:
         workbook: WorkbookStructure,
         result: ValidationResult,
     ) -> None:
-        slots_by_station: dict[str, list[int]] = {}
-        active_station = ""
-        for row in workbook.reserve_rows:
-            if row.is_anchor_row and row.station:
-                active_station = row.station
-            if active_station:
-                slots_by_station.setdefault(normalize_route(active_station), []).append(row.row)
-
-        next_slot_by_station: dict[str, int] = {}
         for update in updates:
             normalized_status = " ".join(update.status.lower().split())
-            station_key = normalize_route(update.workshop_station)
             if (
                 not update.workshop_station.strip()
                 or not REGISTRATION_RE.fullmatch(update.registration)
@@ -254,25 +244,13 @@ class ValidationLayer:
                 )
                 continue
 
-            slot_index = next_slot_by_station.get(station_key, 0)
-            station_slots = slots_by_station.get(station_key, [])
-            if slot_index >= len(station_slots):
-                result.issues.append(
-                    ValidationIssue(
-                        "BR-004",
-                        "PrevisionFlota.pdf",
-                        update.registration,
-                        f"No available Reserva row for station {update.workshop_station!r}.",
-                    )
-                )
-                continue
-
             result.reserve_updates.append(
                 ValidatedReserveUpdate(
                     update.workshop_station,
                     update.registration,
                     update.status,
-                    station_slots[slot_index],
+                    # Reserva is rebuilt by the Loader from the PDF, so this
+                    # placeholder does not represent a fixed template row.
+                    target_row=0,
                 )
             )
-            next_slot_by_station[station_key] = slot_index + 1

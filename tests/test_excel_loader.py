@@ -32,7 +32,7 @@ def test_loader_writes_multiple_test_trains_and_preserves_schedule(tmp_path: Pat
         output,
         program_date=date(2026, 7, 10),
         test_trains=[
-            TestTrainInput("P009", "855+000 - 893+000", "R001/R006", "17:00", "03:00"),
+            TestTrainInput("P009", "855+000 - 893+000", "R001 y R006", "17:00", "03:00"),
             TestTrainInput("P020", "893+000 - 900+000", "N001", "08:15", "10:45"),
         ],
     )
@@ -46,7 +46,7 @@ def test_loader_writes_multiple_test_trains_and_preserves_schedule(tmp_path: Pat
     assert worksheet["B3"].value == "10 Julio. 2026"
     assert worksheet["B68"].value == "P009"
     assert worksheet["C68"].value == "855+000 - 893+000"
-    assert worksheet["D68"].value == "R001/R006"
+    assert worksheet["D68"].value == "R001 y R006"
     assert worksheet["E68"].value == "N/A"
     assert worksheet["F68"].value == "17:00"
     assert worksheet["G68"].value == "03:00"
