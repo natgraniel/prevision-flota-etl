@@ -206,6 +206,18 @@ class ExcelLoader:
         if not commercial_updates:
             return
 
+        test_header_row = next(
+            (
+                row
+                for row in range(1, worksheet.max_row + 1)
+                if worksheet.cell(row, COL_STATION).value == "Pruebas"
+            ),
+            None,
+        )
+        if test_header_row is None:
+            raise ValueError("Programa template has no Pruebas section header.")
+        commercial_end_row = test_header_row - 1
+
         service_starts = sorted(
             (update.target_row, update.service) for update in commercial_updates
         )
@@ -214,7 +226,7 @@ class ExcelLoader:
             next_start = (
                 service_starts[index + 1][0]
                 if index + 1 < len(service_starts)
-                else TEST_ROW
+                else commercial_end_row + 1
             )
             service_spans[service] = (start_row, next_start - 1)
 
@@ -228,7 +240,7 @@ class ExcelLoader:
             if len(source_services) < 2 or len(group_updates) != len(source_services):
                 continue
             try:
-                spans = [service_spans[service] for service in source_services]
+                spans = sorted(service_spans[service] for service in source_services)
             except KeyError:
                 continue
             if all(spans[index][1] + 1 == spans[index + 1][0] for index in range(len(spans) - 1)):
@@ -240,10 +252,13 @@ class ExcelLoader:
             (merged.min_row, merged.min_col, merged.max_row, merged.max_col)
             for merged in worksheet.merged_cells.ranges
             if merged.min_col == COL_REGISTRATION == merged.max_col
-            and merged.max_row < TEST_ROW
+            and merged.max_row <= commercial_end_row
         ]
+        # Only the top-left cell of an existing merge has the intended style.
+        # Propagate that anchor style before unmerging, otherwise a newly
+        # created sub-merge can inherit the blank child cell's default font.
         saved_styles = {
-            row: copy(worksheet.cell(row, COL_REGISTRATION)._style)
+            row: copy(worksheet.cell(start_row, COL_REGISTRATION)._style)
             for start_row, _, end_row, _ in existing_merges
             for row in range(start_row, end_row + 1)
         }

@@ -1,4 +1,5 @@
 from datetime import date
+from dataclasses import replace
 from pathlib import Path
 
 from openpyxl import load_workbook
@@ -24,6 +25,18 @@ def test_loader_writes_multiple_test_trains_and_preserves_schedule(tmp_path: Pat
     transformed = TransformationLayer().transform(
         pdf_result.commercial_services, pdf_result.reserve, word_result.operations
     )
+    # The source files vary daily. Simulate the valid PDF case where it lists
+    # the physically adjacent template services in reverse order: 304-303.
+    transformed.commercial_updates = [
+        replace(
+            update,
+            registration="C004",
+            source_services=("304", "303"),
+        )
+        if update.service in {"303", "304"}
+        else update
+        for update in transformed.commercial_updates
+    ]
     validated = ValidationLayer().validate(transformed, WorkbookReader().read(str(source)))
 
     load_result = ExcelLoader().load(
@@ -46,10 +59,21 @@ def test_loader_writes_multiple_test_trains_and_preserves_schedule(tmp_path: Pat
     merges = {str(merged) for merged in worksheet.merged_cells.ranges}
     # The source PDF combines 301-302, whose blocks are adjacent in Programa.
     assert "D27:D34" in merges
+    # The PDF may list a pair in either order; the template's physical order
+    # determines the vertical merge.
+    assert "D35:D38" in merges
+    assert "D39:D42" in merges
     # 601-604 share an MR in the PDF but are separated by 602-603 in Programa;
     # they must remain independent to avoid covering those intervening rows.
     assert "D55:D56" in merges
     assert "D61:D62" in merges
+    # The commercial merge must end before the Pruebas section header.
+    assert "B67:I67" in merges
+    assert "D65:D66" in merges
+    assert "D65:D67" not in merges
+    assert worksheet["D35"].font.name == "Noto Sans"
+    assert worksheet["D35"].font.bold is True
+    assert worksheet["D35"].font.sz == 12
     assert worksheet["B3"].value == "10 Julio. 2026"
     assert worksheet["B68"].value == "P009"
     assert worksheet["C68"].value == "855+000 - 893+000"
