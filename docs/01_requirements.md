@@ -2,18 +2,20 @@
 
 ## 1. Business context
 
-The traffic analysis team must publish, every day, a document called
-**Programa**, consolidating which rolling stock (registration number)
-will cover each commercial service the following day, and how many
-tickets have already been sold for each route segment of that service.
-Today this information is transcribed by hand from two documents that
-arrive in different, non-tabular formats.
+The Dirección de Circulación Ferroviaria (Railway Operations
+Directorate) must publish, every day, a document called **Programa**,
+consolidating which rolling stock (registration number) will cover each
+commercial service the following day, and how many tickets have already
+been sold for each route segment of that service. Today this information
+is transcribed by hand from two documents that arrive in different,
+non-tabular formats.
 
 ## 2. Users / stakeholders
 
-- **Direct user**: traffic analyst who builds the Programa (Nat's role).
-- **End user**: operations / management, who use the Programa for daily
-  fleet management decisions.
+- **Direct user**: staff member of the Dirección de Circulación
+  Ferroviaria responsible for preparing the Programa.
+- **End users**: operational and management personnel who use the
+  Programa for daily circulation and fleet-management decisions.
 
 ## 3. Scope
 
