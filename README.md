@@ -11,8 +11,7 @@ fleet-forecast PDF and an operations-report Word document.
 
 ## Business problem
 
-Every day, operations must manually consolidate — into an Excel file
-called **Programa** — which rolling stock (registration number) will
+Every day, the Railway Operations Directorate must manually consolidate — into an Excel file called **Programa** — which rolling stock (registration number) will
 run each commercial service the following day, and how many tickets
 have been sold per route segment. Today this is transcribed by hand
 from two documents that arrive in different, non-tabular formats.
