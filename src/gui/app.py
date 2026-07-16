@@ -11,6 +11,7 @@ from src.loaders.excel_loader import TestTrainInput
 from src.pipeline import run
 from src.utils.execution_lock import RunAlreadyInProgressError
 from src.utils.shared_workspace import SharedWorkspace
+from src.utils.source_date import extract_fleet_forecast_date, extract_operations_report_date
 
 DEFAULT_DESTINATION = Path(
     r"\\tmmertru09\Seguridad_Circulacion\Direccion de Circulacion Ferroviaria\Previsión de Trenes_2026\Julio_2026"
@@ -143,6 +144,37 @@ class ProgramaApp(ttk.Frame):
             selected_date = datetime.strptime(self.program_date.get().strip(), "%d/%m/%Y").date()
         except ValueError:
             messagebox.showerror("Fecha no válida", "Usa el formato dd/mm/aaaa, por ejemplo 10/07/2026.")
+            return
+
+        source_dates = (
+            ("Previsión de flota (PDF)", extract_fleet_forecast_date(paths[0])),
+            ("Parte de operaciones (Word)", extract_operations_report_date(paths[1])),
+        )
+        mismatches = [
+            (label, source_date)
+            for label, source_date in source_dates
+            if source_date is not None and source_date != selected_date
+        ]
+        if mismatches:
+            details = "\n".join(
+                f"- {label}: {source_date:%d/%m/%Y}"
+                for label, source_date in mismatches
+            )
+            messagebox.showerror(
+                "Las fechas no coinciden",
+                f"La fecha del Programa es {selected_date:%d/%m/%Y}, pero se detectó:\n\n"
+                f"{details}\n\nSelecciona los archivos correspondientes antes de continuar.",
+            )
+            return
+
+        unidentified = [label for label, source_date in source_dates if source_date is None]
+        if unidentified and not messagebox.askyesno(
+            "Fecha no identificada",
+            "No fue posible identificar la fecha en el nombre de:\n\n"
+            + "\n".join(f"- {label}" for label in unidentified)
+            + f"\n\nFecha capturada: {selected_date:%d/%m/%Y}.\n"
+            "Verifica manualmente los archivos. ¿Deseas continuar?",
+        ):
             return
 
         test_trains = None
