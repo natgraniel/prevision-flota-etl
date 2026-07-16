@@ -20,7 +20,6 @@ from src.transformers.transformation_layer import (
 )
 
 REGISTRATION_RE = re.compile(r"^[A-Z]\d{3}$")
-VALID_RESERVE_STATUSES = {"reserva", "reserva en estacion"}
 # Verified naming difference between the real Word source and Programa
 # template. Keep this mapping small and explicit: it is a business glossary,
 # not fuzzy matching.
@@ -235,10 +234,14 @@ class ValidationLayer:
     ) -> None:
         for update in updates:
             normalized_status = " ".join(update.status.lower().split())
+            is_reserve_status = (
+                normalized_status == "reserva"
+                or normalized_status.startswith("reserva ")
+            )
             if (
                 not update.workshop_station.strip()
                 or not REGISTRATION_RE.fullmatch(update.registration)
-                or normalized_status not in VALID_RESERVE_STATUSES
+                or not is_reserve_status
             ):
                 result.issues.append(
                     ValidationIssue(

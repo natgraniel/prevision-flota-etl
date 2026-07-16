@@ -374,8 +374,11 @@ class ExcelLoader:
                     end_column=9,
                 )
                 worksheet.cell(current_row, COL_REGISTRATION).value = update.registration
+                normalized_status = " ".join(update.status.upper().split())
                 worksheet.cell(current_row, COL_RESERVE_STATUS).value = (
-                    "" if update.status.strip().upper() == "RESERVA" else update.status
+                    "RESERVA EN ESTACION"
+                    if normalized_status == "RESERVA EN ESTACION"
+                    else ""
                 )
                 current_row += 1
 

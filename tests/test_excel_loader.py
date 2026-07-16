@@ -98,3 +98,7 @@ def test_loader_writes_multiple_test_trains_and_preserves_schedule(tmp_path: Pat
     assert worksheet["D71"].value == "L007"
     assert worksheet["E71"].value == "RESERVA EN ESTACION"
     assert worksheet["E73"].value is None
+    assert all(
+        worksheet.cell(row, 5).value in (None, "RESERVA EN ESTACION")
+        for row in range(71, 71 + load_result.reserve_updates_written)
+    )

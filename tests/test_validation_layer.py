@@ -29,7 +29,10 @@ def test_validation_rebuilds_split_excel_route_and_keeps_reserves_dynamic():
     updates = TransformationResult(
         commercial_updates=[CommercialUpdateRecord("101", "L010")],
         ticket_updates=[TicketUpdateRecord("101", "Palenque – S.F. Campeche.", 85)],
-        reserve_updates=[ReserveUpdateRecord("Cancun", "D008", "RESERVA EN ESTACION")],
+        reserve_updates=[
+            ReserveUpdateRecord("Cancun", "D008", "RESERVA EN ESTACION"),
+            ReserveUpdateRecord("Cancun", "L003", "RESERVA Pruebas de acoplamiento"),
+        ],
     )
 
     result = ValidationLayer().validate(updates, workbook)
@@ -38,3 +41,5 @@ def test_validation_rebuilds_split_excel_route_and_keeps_reserves_dynamic():
     assert result.commercial_updates[0].target_row == 7
     assert result.ticket_updates[0].target_row == 7
     assert result.reserve_updates[0].target_row == 0
+    assert result.reserve_updates[1].registration == "L003"
+    assert result.reserve_updates[1].target_row == 0
