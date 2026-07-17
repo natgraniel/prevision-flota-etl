@@ -94,6 +94,8 @@ prevision-flota-etl/
 - [x] Phase 7 — Logging
 - [ ] Phase 8 — CI/CD (GitHub Actions)
 
+Version 1.0 - Operational and under user acceptance testing.
+
 ## Operational desktop application
 
 The operator-facing application is `src/gui/app.py`. It uses Tkinter,
