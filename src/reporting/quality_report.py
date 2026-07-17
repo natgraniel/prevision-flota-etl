@@ -32,10 +32,32 @@ def build_quality_report(
             "ticket_updates_approved": len(validation.ticket_updates),
             "reserve_updates_approved": len(validation.reserve_updates),
             "validation_issues": len(validation.issues),
+            "execution_issues": 0,
             "status": "passed" if not validation.issues else "failed",
         },
         "issues": [asdict(issue) for issue in validation.issues],
     }
+
+
+def add_execution_issue(
+    report: dict,
+    rule_id: str,
+    source: str,
+    record_id: str,
+    description: str,
+) -> None:
+    """Add a post-validation execution error, such as an invalid UI input."""
+
+    report["issues"].append(
+        {
+            "rule_id": rule_id,
+            "source": source,
+            "record_id": record_id,
+            "description": description,
+        }
+    )
+    report["summary"]["execution_issues"] += 1
+    report["summary"]["status"] = "failed"
 
 
 def write_quality_report(report: dict, path: Path) -> Path:

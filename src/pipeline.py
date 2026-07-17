@@ -9,9 +9,13 @@ from pathlib import Path
 
 from src.extractors.pdf_extractor import PDFExtractor
 from src.extractors.word_extractor import WordExtractor
-from src.loaders.excel_loader import ExcelLoader, TestTrainInput
+from src.loaders.excel_loader import ExcelLoader, TestTrainInput, TestTrainValidationError
 from src.models.workbook_reader import WorkbookReader
-from src.reporting.quality_report import build_quality_report, write_quality_report
+from src.reporting.quality_report import (
+    add_execution_issue,
+    build_quality_report,
+    write_quality_report,
+)
 from src.transformers.transformation_layer import TransformationLayer
 from src.utils.execution_lock import exclusive_run_lock
 from src.utils.logging_config import configure_logging
@@ -57,13 +61,25 @@ def run(
             logger.warning("Validation failed with %s issue(s)", len(validated.issues))
             raise RuntimeError(f"No output was generated. Review the quality report: {report_path}")
 
-        result = ExcelLoader().load(
-            validated,
-            workbook_path,
-            output_path,
-            program_date=program_date,
-            test_trains=test_trains,
-        )
+        try:
+            result = ExcelLoader().load(
+                validated,
+                workbook_path,
+                output_path,
+                program_date=program_date,
+                test_trains=test_trains,
+            )
+        except TestTrainValidationError as error:
+            add_execution_issue(
+                report,
+                rule_id="UI-001",
+                source="Interfaz - Pruebas",
+                record_id="Captura de tren de prueba",
+                description=str(error),
+            )
+            write_quality_report(report, report_path)
+            logger.warning("Test-train input rejected: %s", error)
+            raise
         if archive_dir:
             archive_run(archive_dir, pdf_path, word_path, workbook_path, output_path, report_path)
         logger.info("ETL run finished successfully: %s", output_path.name)

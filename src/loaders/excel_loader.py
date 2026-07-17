@@ -39,6 +39,12 @@ MONTH_NAMES_ES = (
 )
 
 
+class TestTrainValidationError(ValueError):
+    """Raised when an operator-entered Pruebas value is invalid."""
+
+    __test__ = False
+
+
 @dataclass(frozen=True)
 class TestTrainInput:
     """Operator-entered details for one test train."""
@@ -114,11 +120,13 @@ class ExcelLoader:
         normalized: list[TestTrainInput] = []
         for item in test_trains:
             if not all((item.train.strip(), item.pks.strip(), item.registration.strip(), item.start_time.strip(), item.end_time.strip())):
-                raise ValueError("Every test train must include Tren, P.K.'s, MR, Hora Inicio and Hora Final.")
+                raise TestTrainValidationError(
+                    "Every test train must include Tren, P.K.'s, MR, Hora Inicio and Hora Final."
+                )
             registration = item.registration.strip().upper()
             if not VALID_REGISTRATION_RE.fullmatch(registration):
-                raise ValueError(
-                    "Test MR must use A000 or coupled registrations, for example "
+                raise TestTrainValidationError(
+                    f"Test MR {registration!r} must use A000 or coupled registrations, for example "
                     "N001, R001/R006 or R001 y R006."
                 )
             registration = re.sub(r"\s*Y\s*", " y ", registration)
@@ -132,7 +140,9 @@ class ExcelLoader:
         try:
             return datetime.strptime(value.strip(), "%H:%M").strftime("%H:%M")
         except ValueError as error:
-            raise ValueError(f"{label} must use the 24-hour HH:MM format, for example 17:00.") from error
+            raise TestTrainValidationError(
+                f"{label} must use the 24-hour HH:MM format, for example 17:00."
+            ) from error
 
     @staticmethod
     def _duration_label(start_time: str, end_time: str) -> str:
